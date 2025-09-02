@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <format>
 #include <iostream>
 #include <stdexcept>
 
@@ -21,9 +22,6 @@ Elf::Elf(const char* filepath) {
         close(fd);
         throw std::runtime_error("Failed to mmap file");
     }
-
-    e_class = mapped[EI_CLASS];
-    e_data = mapped[EI_DATA];
 }
 
 void Elf::load_ehdr() { 
@@ -35,7 +33,7 @@ void Elf::load_ehdr() {
 
     ehdr.e_type = stream_bytes<uint16_t>(ptr);
     ehdr.e_machine = stream_bytes<uint16_t>(ptr);
-    ehdr.e_version = stream_bytes<uint16_t>(ptr);
+    ehdr.e_version = stream_bytes<uint32_t>(ptr);
     if (e_class == ELFCLASS32) {
         ehdr.e_entry = (uint64_t) stream_bytes<uint32_t>(ptr);
         ehdr.e_phoff = (uint64_t) stream_bytes<uint32_t>(ptr);
@@ -54,5 +52,49 @@ void Elf::load_ehdr() {
     ehdr.e_shstrndx = stream_bytes<uint16_t>(ptr);
 
 
-    std::cout << "e_type : " << +ehdr.e_type << std::endl;
+};
+
+void Elf::print_ehdr() {
+    for (uint8_t x: ehdr.e_ident) {
+        std::cout << std::format("{:#02x}", x) << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "e_type : " << std::format("{:#02x}", ehdr.e_type) << std::endl;
+    std::cout << "e_machine : " << std::format("{:#010x}", ehdr.e_machine) << std::endl;
+    std::cout << "e_version : " << std::format("{:#010x}", ehdr.e_version) << std::endl;
+    std::cout << "e_entry : " << std::format("{:#010x}", ehdr.e_entry) << std::endl;
+    std::cout << "e_phoff : " << std::format("{:#010x}", ehdr.e_phoff) << std::endl;
+    std::cout << "e_shoff : " << std::format("{:#010x}", ehdr.e_shoff) << std::endl;
+    std::cout << "e_shnum : " << std::format("{:#010x}", ehdr.e_shnum) << std::endl;
+}
+
+void Elf::load_sections() {
+    std::cout << "Loading ELF Section (by headers)" << std::endl;
+
+    for (uint16_t i = 0; i < ehdr.e_shnum; i++) {
+        uint8_t* ptr = mapped + ehdr.e_shoff + i * ehdr.e_shentsize;
+        Elf_Shdr shdr {};
+        shdr.sh_name = stream_bytes<uint32_t>(ptr);
+        shdr.sh_type = stream_bytes<uint32_t>(ptr);
+        if (e_class == ELFCLASS32) {
+            shdr.sh_flags = (uint64_t) stream_bytes<uint32_t>(ptr);
+            shdr.sh_addr = (uint64_t) stream_bytes<uint32_t>(ptr);
+            shdr.sh_offset = (uint64_t) stream_bytes<uint32_t>(ptr);
+            shdr.sh_size = (uint64_t) stream_bytes<uint32_t>(ptr);
+            shdr.sh_link = (uint64_t) stream_bytes<uint32_t>(ptr);
+            shdr.sh_info = (uint64_t) stream_bytes<uint32_t>(ptr);
+            shdr.sh_addralign = (uint64_t) stream_bytes<uint32_t>(ptr);
+            shdr.sh_entsize = (uint64_t) stream_bytes<uint32_t>(ptr);
+        } else {
+            shdr.sh_flags = stream_bytes<uint64_t>(ptr);
+            shdr.sh_addr = stream_bytes<uint64_t>(ptr);
+            shdr.sh_offset = stream_bytes<uint64_t>(ptr);
+            shdr.sh_size = stream_bytes<uint64_t>(ptr);
+            shdr.sh_link = stream_bytes<uint32_t>(ptr);
+            shdr.sh_info = stream_bytes<uint32_t>(ptr);
+            shdr.sh_addralign = stream_bytes<uint64_t>(ptr);
+            shdr.sh_entsize = stream_bytes<uint64_t>(ptr);
+        }
+        sections.push_back(shdr);
+    }
 };

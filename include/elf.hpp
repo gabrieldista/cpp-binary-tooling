@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <vector>
 
 constexpr std::size_t EI_NIDENT  = 16;
 constexpr std::size_t EI_CLASS = 4; 
@@ -23,7 +24,7 @@ struct Elf_Ehdr {
     std::uint8_t e_ident[EI_NIDENT];
     std::uint16_t e_type;
     std::uint16_t e_machine;
-    std::uint16_t e_version;
+    std::uint32_t e_version;
 
     std::uint64_t e_entry;
     std::uint64_t e_phoff;
@@ -38,17 +39,31 @@ struct Elf_Ehdr {
     std::uint16_t e_shstrndx;
 };
 
+struct Elf_Shdr {
+    std::uint32_t sh_name;
+    std::uint32_t sh_type;
+    std::uint32_t sh_flags;
+    std::uint64_t sh_addr;
+    std::uint64_t sh_offset;
+    std::uint32_t sh_size;
+    std::uint32_t sh_link;
+    std::uint32_t sh_info;
+    std::uint32_t sh_addralign;
+    std::uint32_t sh_entsize;
+};
+
 class Elf {
     public:
+        std::vector<Elf_Shdr> sections;
         struct Elf_Ehdr ehdr;
         std::uint8_t e_class;
         std::uint8_t e_data;
         char* filepath;
 
         Elf(const char* filepath);
-        void load_edata();
-        void load_eclass();
         void load_ehdr();
+        void load_sections();
+        void print_ehdr();
 
     private:
         std::uint8_t* mapped;
